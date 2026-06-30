@@ -70,9 +70,24 @@ self.addEventListener("activate", (event) => {
       .then((keys) => Promise.all(keys
         .filter((key) => key !== SHELL_CACHE && key !== MEDIA_CACHE)
         .map((key) => caches.delete(key))))
+      .then(() => purgeOpaqueMedia())
       .then(() => self.clients.claim())
   );
 });
+
+// Evict any opaque (no-CORS) audio cached by an earlier build. Such entries
+// taint the Web Audio graph and break range reads; dropping only the opaque
+// ones forces a CORS-clean re-fetch while keeping same-origin offline tracks.
+async function purgeOpaqueMedia() {
+  const cache = await caches.open(MEDIA_CACHE);
+  const requests = await cache.keys();
+  await Promise.all(requests.map(async (request) => {
+    const response = await cache.match(request);
+    if (response && response.type === "opaque") {
+      await cache.delete(request);
+    }
+  }));
+}
 
 self.addEventListener("message", (event) => {
   if (!event.data || event.data.type !== "CACHE_AUDIO") {
@@ -144,12 +159,14 @@ async function cacheUrl(cache, url) {
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request.url);
-  if (cached) {
+  // Skip opaque cached entries: an opaque (no-CORS) response taints the Web
+  // Audio graph and yields silent playback, so re-fetch it CORS-clean instead.
+  if (cached && cached.type !== "opaque") {
     return cached;
   }
 
   const response = await fetch(request);
-  if (response.ok || response.type === "opaque") {
+  if (response.ok) {
     cache.put(request.url, response.clone());
   }
   return response;
@@ -241,7 +258,9 @@ async function cacheAudioFromAlbums() {
 async function handleRangeRequest(request) {
   const cached = await caches.match(request.url);
 
-  if (!cached) {
+  // An opaque cached body is unreadable (arrayBuffer() throws) and would also
+  // taint Web Audio, so go to the network (CORS mode) instead.
+  if (!cached || cached.type === "opaque") {
     return fetch(request);
   }
 
