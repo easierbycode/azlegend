@@ -1,0 +1,17 @@
+[
+  {
+    "id": "az_legend_demo",
+    "title": "AZ Legend Demo",
+    "tracks": "/public/music/az_legend_demo.json"
+  },
+  {
+    "id": "az_is_the_new_a_town",
+    "title": "AZ Is The New A Town",
+    "tracks": "/public/music/az_is_the_new_a_town.json"
+  },
+  {
+    "id": "misc_tracks",
+    "title": "Misc Tracks",
+    "tracks": "/public/music/misc_tracks.json"
+  }
+]

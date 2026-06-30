@@ -1,0 +1,15 @@
+<div id="<%= collection.album %>" class="wrapper">
+  <div class="scroller">
+    <ul class="album">
+    <% collection.each(function(item) { %>
+      <li>
+        <a href="<%= item.get('url') %>"><%= item.get('title') %></a>
+      </li>
+    <% }); %>
+    </ul>
+  </div>
+</div>
+
+<div class="tape span">
+  <%= tape %>
+</div>
