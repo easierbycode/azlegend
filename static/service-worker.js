@@ -1,4 +1,4 @@
-const VERSION = "azlegend-v4";
+const VERSION = "azlegend-fresh-v2";
 const SHELL_CACHE = VERSION + "-shell";
 const MEDIA_CACHE = VERSION + "-media";
 const ALBUM_INDEX_URL = "/public/music/albums.json";
@@ -34,7 +34,6 @@ const AUDIO_PARTY_ASSETS = [
 
 const SHELL_ASSETS = [
   "/",
-  "/index.html",
   "/manifest.webmanifest",
   "/public/app/images/icon.svg",
   "/public/app/styles/styles.css",
@@ -53,6 +52,7 @@ const SHELL_ASSETS = [
   "/public/libraries/image/spool-metal.png",
   "/public/libraries/image/spool-metal-black.png",
   "/public/libraries/image/tape-guide.png",
+  "/public/libraries/image/tape-texture.png",
   ALBUM_INDEX_URL
 ].concat(AUDIO_PARTY_ASSETS);
 
@@ -110,7 +110,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (request.mode === "navigate") {
-    event.respondWith(networkFirst(request, "/index.html"));
+    event.respondWith(networkFirst(request, "/"));
     return;
   }
 
