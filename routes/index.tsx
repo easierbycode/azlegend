@@ -125,7 +125,12 @@ export default define.page(function Home() {
               <span id="duration">0:00</span>
             </div>
 
-            <audio id="audioPlayer" preload="metadata"></audio>
+            <audio
+              id="audioPlayer"
+              crossOrigin="anonymous"
+              preload="metadata"
+            >
+            </audio>
           </section>
         </main>
 
