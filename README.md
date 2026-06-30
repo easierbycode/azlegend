@@ -1,6 +1,6 @@
-# AZ Legend
+# AZLegendGolden
 
-Fresh 2.3.3 cassette player for Golden's AZ Legend tracks.
+Fresh 2.3.3 cassette player for AZLegendGolden's tracks.
 
 ## Development
 
