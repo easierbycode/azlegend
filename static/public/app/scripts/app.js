@@ -2,16 +2,20 @@
   "use strict";
 
   var ALBUM_INDEX_URL = "/public/music/albums.json";
+  var DEFAULT_BRAND = "Golden";
+  var MESSAGE_PREFIX = "music-player:";
 
   var state = {
     albums: [],
     selectedAlbumIndex: 0,
     currentAlbumIndex: -1,
     currentTrackIndex: -1,
-    seekDragging: false
+    seekDragging: false,
+    clients: []
   };
 
   var elements = {
+    brand: document.querySelector(".brand"),
     albumTabs: document.getElementById("albumTabs"),
     trackList: document.getElementById("trackList"),
     audio: document.getElementById("audioPlayer"),
@@ -29,7 +33,9 @@
     nextButton: document.getElementById("nextButton"),
     seekControl: document.getElementById("seekControl"),
     currentTime: document.getElementById("currentTime"),
-    duration: document.getElementById("duration")
+    duration: document.getElementById("duration"),
+    albumModal: null,
+    albumModalList: null
   };
 
   var visualizer = new window.AudioPartyVisualizer(document.getElementById("visualizer"), {
@@ -63,12 +69,44 @@
   }
 
   function normalizeTrack(track) {
+    if (typeof track === "string") {
+      track = { url: track };
+    }
     var url = track.url || "";
     var fileName = track.file || url.split("/").pop() || "";
-    return {
+    var normalized = {
+      id: track.id || fileName.replace(/\.[^.]+$/, "") || url,
       title: track.title || titleize(fileName),
       file: fileName,
       url: url
+    };
+
+    // Optional playback hints (used by games sending BGM albums): a fixed
+    // volume and a loop region in seconds. When loopEnd is set, playback
+    // returns to loopStart instead of advancing to the next track.
+    var volume = Number(track.volume);
+    if (Number.isFinite(volume)) {
+      normalized.volume = Math.min(1, Math.max(0, volume));
+    }
+    var loopStart = Number(track.loopStart);
+    var loopEnd = Number(track.loopEnd);
+    if (Number.isFinite(loopEnd) && loopEnd > 0) {
+      normalized.loopStart = Number.isFinite(loopStart) && loopStart >= 0 ? loopStart : 0;
+      normalized.loopEnd = loopEnd;
+    } else if (track.loop === true) {
+      normalized.loopStart = 0;
+    }
+
+    return normalized;
+  }
+
+  function normalizeAlbum(album) {
+    var tracks = Array.isArray(album.tracks) ? album.tracks.map(normalizeTrack) : [];
+    return {
+      id: String(album.id || album.title || "album-" + Date.now()),
+      title: album.title || titleize(album.id || "Album"),
+      tracksUrl: typeof album.tracks === "string" ? album.tracks : album.tracksUrl || null,
+      tracks: tracks
     };
   }
 
@@ -96,6 +134,27 @@
     return state.albums[state.selectedAlbumIndex] || null;
   }
 
+  function albumIndexById(ref) {
+    if (typeof ref === "number") {
+      return state.albums[ref] ? ref : -1;
+    }
+    return state.albums.findIndex(function (album) {
+      return album.id === ref || album.title === ref;
+    });
+  }
+
+  function trackIndexByRef(album, ref) {
+    if (!album) {
+      return -1;
+    }
+    if (typeof ref === "number") {
+      return album.tracks[ref] ? ref : -1;
+    }
+    return album.tracks.findIndex(function (track) {
+      return track.id === ref || track.file === ref || track.title === ref || track.url === ref;
+    });
+  }
+
   function setTapePlaying(isPlaying) {
     elements.tapeShell.classList.toggle("playing", isPlaying);
     elements.tapeShell.classList.toggle("stopped", !isPlaying);
@@ -108,9 +167,9 @@
 
     elements.albumTitle.textContent = album ? album.title : "Album";
     elements.trackTitle.textContent = track ? track.title : "No track selected";
-    elements.tapeLabel.textContent = album ? album.title : "Golden";
+    elements.tapeLabel.textContent = album ? album.title : DEFAULT_BRAND;
 
-    document.title = track ? track.title + " - Golden" : "Golden - AZ Legend";
+    document.title = track ? track.title + " - " + DEFAULT_BRAND : DEFAULT_BRAND + " - AZ Legend";
     renderTrackList();
   }
 
@@ -185,6 +244,8 @@
       });
       elements.albumTabs.appendChild(button);
     });
+
+    renderAlbumModalList();
   }
 
   function renderTrackList() {
@@ -223,6 +284,13 @@
   }
 
   function selectAlbum(index) {
+    if (typeof index !== "number") {
+      index = albumIndexById(index);
+    }
+    if (!state.albums[index]) {
+      return;
+    }
+
     state.selectedAlbumIndex = index;
     renderAlbumTabs();
     renderTrackList();
@@ -232,6 +300,11 @@
       elements.albumTitle.textContent = album.title;
       elements.tapeLabel.textContent = album.title;
     }
+    notifyClients("album-selected");
+  }
+
+  function applyTrackHints(track) {
+    elements.audio.volume = Number.isFinite(track.volume) ? track.volume : 1;
   }
 
   function playTrack(albumIndex, trackIndex) {
@@ -248,6 +321,7 @@
     updateNowPlaying();
     setStatus("Loading");
 
+    applyTrackHints(track);
     if (elements.audio.getAttribute("src") !== track.url) {
       elements.audio.src = track.url;
       elements.audio.load();
@@ -256,6 +330,9 @@
     return visualizer.connect(elements.audio)
       .then(function () {
         return startPlayback("Playing");
+      })
+      .then(function () {
+        notifyClients("track-change");
       });
   }
 
@@ -288,6 +365,7 @@
     setStatus(currentTrack() ? "Stopped" : "Choose a song");
     updateProgress();
     renderTrackList();
+    notifyClients("stop");
   }
 
   function playNeighbor(direction) {
@@ -307,11 +385,325 @@
     return playTrack(albumIndex, trackIndex);
   }
 
+  function enforceLoopRegion() {
+    var track = currentTrack();
+    if (!track || !Number.isFinite(track.loopEnd)) {
+      return;
+    }
+    if (elements.audio.currentTime >= track.loopEnd) {
+      elements.audio.currentTime = track.loopStart || 0;
+    }
+  }
+
   function fitTape() {
     var width = elements.tapeStage.clientWidth;
     var scale = Math.min(1, width / 480);
     elements.tapeShell.style.transform = "scale(" + scale + ")";
     elements.tapeStage.style.height = Math.round(300 * scale) + "px";
+  }
+
+  // ---------------------------------------------------------------------
+  // Album loading — the player is generic: albums can come from the local
+  // index (albums.json), from the MusicPlayer API, or be posted in by a
+  // host page / game via postMessage. Albums with the same id are replaced.
+  // ---------------------------------------------------------------------
+
+  function resolveAlbumTracks(album) {
+    if (album.tracks.length || !album.tracksUrl) {
+      return Promise.resolve(album);
+    }
+    return fetch(album.tracksUrl)
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error(album.title + " failed");
+        }
+        return response.json();
+      })
+      .then(function (tracks) {
+        album.tracks = tracks.map(normalizeTrack);
+        return album;
+      });
+  }
+
+  function addAlbums(albums, options) {
+    options = options || {};
+    var incoming = (Array.isArray(albums) ? albums : [albums]).map(normalizeAlbum);
+
+    return Promise.all(incoming.map(resolveAlbumTracks)).then(function (resolved) {
+      resolved.forEach(function (album) {
+        var existing = albumIndexById(album.id);
+        if (existing >= 0) {
+          state.albums[existing] = album;
+          if (state.currentAlbumIndex === existing) {
+            state.currentTrackIndex = Math.min(
+              state.currentTrackIndex,
+              album.tracks.length - 1
+            );
+          }
+        } else {
+          state.albums.push(album);
+        }
+      });
+
+      renderAlbumTabs();
+      renderTrackList();
+
+      if (state.albums.length && state.currentAlbumIndex < 0) {
+        var first = selectedAlbum() || state.albums[0];
+        elements.albumTitle.textContent = first.title;
+        elements.tapeLabel.textContent = first.title;
+      }
+
+      if (options.select !== undefined) {
+        selectAlbum(albumIndexById(options.select));
+      }
+
+      notifyClients("albums-changed");
+
+      if (options.play !== undefined && options.play !== null) {
+        var playRef = options.play === true ? {} : options.play;
+        var albumIndex = playRef.album !== undefined
+          ? albumIndexById(playRef.album)
+          : albumIndexById(resolved[0] && resolved[0].id);
+        var trackIndex = trackIndexByRef(state.albums[albumIndex], playRef.track !== undefined ? playRef.track : 0);
+        if (albumIndex >= 0 && trackIndex >= 0) {
+          return playTrack(albumIndex, trackIndex).then(function () {
+            return state.albums;
+          });
+        }
+      }
+
+      return state.albums;
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // Album selector modal — hidden until the brand text is tapped/clicked.
+  // ---------------------------------------------------------------------
+
+  function buildAlbumModal() {
+    var modal = document.createElement("div");
+    modal.id = "albumModal";
+    modal.className = "album-modal";
+    modal.hidden = true;
+
+    var backdrop = document.createElement("div");
+    backdrop.className = "album-modal-backdrop";
+    backdrop.addEventListener("click", closeAlbumModal);
+
+    var panel = document.createElement("div");
+    panel.className = "album-modal-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-label", "Select album");
+
+    var heading = document.createElement("h2");
+    heading.className = "album-modal-title";
+    heading.textContent = "Albums";
+
+    var list = document.createElement("ul");
+    list.className = "album-modal-list";
+
+    var close = document.createElement("button");
+    close.type = "button";
+    close.className = "album-modal-close secondary-button";
+    close.textContent = "Close";
+    close.addEventListener("click", closeAlbumModal);
+
+    panel.appendChild(heading);
+    panel.appendChild(list);
+    panel.appendChild(close);
+    modal.appendChild(backdrop);
+    modal.appendChild(panel);
+    document.body.appendChild(modal);
+
+    elements.albumModal = modal;
+    elements.albumModalList = list;
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !modal.hidden) {
+        closeAlbumModal();
+      }
+    });
+  }
+
+  function renderAlbumModalList() {
+    if (!elements.albumModalList) {
+      return;
+    }
+
+    elements.albumModalList.replaceChildren();
+    state.albums.forEach(function (album, index) {
+      var item = document.createElement("li");
+      var button = document.createElement("button");
+      var isActive = index === state.selectedAlbumIndex;
+
+      button.type = "button";
+      button.className = "album-modal-option" + (isActive ? " is-active" : "");
+      button.setAttribute("aria-current", isActive ? "true" : "false");
+      button.textContent = album.title;
+
+      var count = document.createElement("span");
+      count.className = "album-modal-count";
+      count.textContent = album.tracks.length + (album.tracks.length === 1 ? " track" : " tracks");
+      button.appendChild(count);
+
+      button.addEventListener("click", function () {
+        selectAlbum(index);
+        closeAlbumModal();
+      });
+
+      item.appendChild(button);
+      elements.albumModalList.appendChild(item);
+    });
+  }
+
+  function openAlbumModal() {
+    if (!elements.albumModal || !state.albums.length) {
+      return;
+    }
+    renderAlbumModalList();
+    elements.albumModal.hidden = false;
+  }
+
+  function closeAlbumModal() {
+    if (elements.albumModal) {
+      elements.albumModal.hidden = true;
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Messaging — games embed the player (iframe/popup) and drive it with
+  // postMessage. Every message is `{ type: "music-player:<command>", ... }`.
+  // The player announces itself with "music-player:ready" and answers
+  // "music-player:get-state" with "music-player:state".
+  // ---------------------------------------------------------------------
+
+  function playerState() {
+    var track = currentTrack();
+    return {
+      albums: state.albums.map(function (album) {
+        return {
+          id: album.id,
+          title: album.title,
+          tracks: album.tracks.map(function (t) {
+            return { id: t.id, title: t.title, file: t.file, url: t.url };
+          })
+        };
+      }),
+      selectedAlbumId: selectedAlbum() ? selectedAlbum().id : null,
+      currentAlbumId: currentAlbum() ? currentAlbum().id : null,
+      currentTrackIndex: state.currentTrackIndex,
+      currentTrackId: track ? track.id : null,
+      paused: elements.audio.paused,
+      currentTime: elements.audio.currentTime || 0,
+      duration: Number.isFinite(elements.audio.duration) ? elements.audio.duration : 0
+    };
+  }
+
+  function rememberClient(source, origin) {
+    if (!source || source === window) {
+      return;
+    }
+    var known = state.clients.some(function (client) {
+      return client.source === source;
+    });
+    if (!known) {
+      state.clients.push({ source: source, origin: origin || "*" });
+    }
+  }
+
+  function postToClient(client, message) {
+    try {
+      client.source.postMessage(message, client.origin || "*");
+    } catch (_error) {
+      /* client window may be gone */
+    }
+  }
+
+  function notifyClients(event) {
+    var message = {
+      type: MESSAGE_PREFIX + "event",
+      event: event,
+      state: playerState()
+    };
+    state.clients.forEach(function (client) {
+      postToClient(client, message);
+    });
+  }
+
+  function announceReady() {
+    var message = { type: MESSAGE_PREFIX + "ready", state: playerState() };
+    var targets = [];
+    if (window.parent && window.parent !== window) {
+      targets.push(window.parent);
+    }
+    if (window.opener) {
+      targets.push(window.opener);
+    }
+    targets.forEach(function (target) {
+      try {
+        target.postMessage(message, "*");
+      } catch (_error) {
+        /* no-op */
+      }
+    });
+  }
+
+  function handleMessage(event) {
+    var data = event.data;
+    if (!data || typeof data.type !== "string" || data.type.indexOf(MESSAGE_PREFIX) !== 0) {
+      return;
+    }
+
+    rememberClient(event.source, event.origin);
+    var command = data.type.slice(MESSAGE_PREFIX.length);
+
+    switch (command) {
+      case "add-albums":
+        addAlbums(data.albums || [], { select: data.select, play: data.play });
+        break;
+      case "select-album":
+        selectAlbum(albumIndexById(data.album));
+        break;
+      case "play": {
+        var albumIndex = data.album !== undefined
+          ? albumIndexById(data.album)
+          : (state.currentAlbumIndex >= 0 ? state.currentAlbumIndex : state.selectedAlbumIndex);
+        if (data.track !== undefined) {
+          playTrack(albumIndex, trackIndexByRef(state.albums[albumIndex], data.track));
+        } else {
+          togglePlayback();
+        }
+        break;
+      }
+      case "pause":
+        elements.audio.pause();
+        break;
+      case "resume":
+        if (currentTrack()) {
+          startPlayback("Playing");
+        }
+        break;
+      case "stop":
+        stopTrack();
+        break;
+      case "next":
+        playNeighbor(1);
+        break;
+      case "prev":
+        playNeighbor(-1);
+        break;
+      case "get-state":
+        postToClient({ source: event.source, origin: event.origin }, {
+          type: MESSAGE_PREFIX + "state",
+          requestId: data.requestId,
+          state: playerState()
+        });
+        break;
+      default:
+        break;
+    }
   }
 
   function sendServiceWorkerMessage(message) {
@@ -397,6 +789,10 @@
     });
     elements.offlineButton.addEventListener("click", cacheOfflineAudio);
 
+    if (elements.brand) {
+      elements.brand.addEventListener("click", openAlbumModal);
+    }
+
     elements.tapeShell.addEventListener("click", togglePlayback);
     elements.tapeShell.addEventListener("keydown", function (event) {
       if (event.key === "Enter" || event.key === " ") {
@@ -426,6 +822,7 @@
       setTapePlaying(true);
       setStatus("Playing");
       renderTrackList();
+      notifyClients("play");
     });
     elements.audio.addEventListener("pause", function () {
       setTapePlaying(false);
@@ -433,13 +830,25 @@
         setStatus("Paused");
       }
       renderTrackList();
+      notifyClients("pause");
     });
     elements.audio.addEventListener("ended", function () {
+      var track = currentTrack();
+      if (track && (Number.isFinite(track.loopEnd) || Number.isFinite(track.loopStart))) {
+        elements.audio.currentTime = track.loopStart || 0;
+        startPlayback("Playing");
+        return;
+      }
+      notifyClients("ended");
       playNeighbor(1);
     });
-    elements.audio.addEventListener("timeupdate", updateProgress);
+    elements.audio.addEventListener("timeupdate", function () {
+      enforceLoopRegion();
+      updateProgress();
+    });
     elements.audio.addEventListener("durationchange", updateProgress);
 
+    window.addEventListener("message", handleMessage);
     window.addEventListener("resize", fitTape);
     window.addEventListener("online", function () {
       setOfflineStatus("Ready");
@@ -458,46 +867,67 @@
         return response.json();
       })
       .then(function (albumIndex) {
-        return Promise.all(albumIndex.map(function (album) {
-          return fetch(album.tracks)
-            .then(function (response) {
-              if (!response.ok) {
-                throw new Error(album.title + " failed");
-              }
-              return response.json();
-            })
-            .then(function (tracks) {
-              return {
-                id: album.id,
-                title: album.title,
-                tracksUrl: album.tracks,
-                tracks: tracks.map(normalizeTrack)
-              };
-            });
-        }));
+        return addAlbums(albumIndex);
       })
-      .then(function (albums) {
-        state.albums = albums;
-        renderAlbumTabs();
-        renderTrackList();
-        if (albums[0]) {
-          elements.albumTitle.textContent = albums[0].title;
-          elements.tapeLabel.textContent = albums[0].title;
-        }
+      .then(function () {
         setStatus("Choose a song");
       })
       .catch(function () {
-        setStatus("Could not load albums");
+        setStatus(state.albums.length ? "Choose a song" : "Could not load albums");
       });
   }
 
   function init() {
+    buildAlbumModal();
     bindEvents();
     fitTape();
     visualizer.load();
-    loadAlbums();
+
+    var params = new URLSearchParams(window.location.search);
+    var loadDefaults = params.get("albums") !== "none";
+
+    var boot = loadDefaults ? loadAlbums() : Promise.resolve();
+    boot.finally(function () {
+      announceReady();
+    });
+
     registerServiceWorker();
   }
+
+  // Public API — lets a host page (or game running in the same window)
+  // drive the player directly instead of via postMessage.
+  window.MusicPlayer = {
+    addAlbums: addAlbums,
+    selectAlbum: function (ref) {
+      selectAlbum(albumIndexById(ref));
+    },
+    play: function (albumRef, trackRef) {
+      if (albumRef === undefined) {
+        return togglePlayback();
+      }
+      var albumIndex = albumIndexById(albumRef);
+      return playTrack(albumIndex, trackIndexByRef(state.albums[albumIndex], trackRef !== undefined ? trackRef : 0));
+    },
+    pause: function () {
+      elements.audio.pause();
+    },
+    resume: function () {
+      if (currentTrack()) {
+        return startPlayback("Playing");
+      }
+      return Promise.resolve();
+    },
+    stop: stopTrack,
+    next: function () {
+      return playNeighbor(1);
+    },
+    prev: function () {
+      return playNeighbor(-1);
+    },
+    getState: playerState,
+    openAlbumModal: openAlbumModal,
+    closeAlbumModal: closeAlbumModal
+  };
 
   init();
 })();
