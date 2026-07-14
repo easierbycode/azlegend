@@ -39,7 +39,8 @@
   };
 
   var visualizer = new window.AudioPartyVisualizer(document.getElementById("visualizer"), {
-    assetBase: "/public/app/images/audio-party"
+    assetBase: "/public/app/images/audio-party",
+    onFrequency: broadcastFrequency
   });
 
   function titleize(value) {
@@ -632,22 +633,65 @@
     });
   }
 
-  function announceReady() {
-    var message = { type: MESSAGE_PREFIX + "ready", state: playerState() };
+  // Post a message to every embedding host — the parent frame, the popup
+  // opener, and any window that has spoken to us over the protocol — deduped so
+  // a host that is both (e.g. the game frame that embedded us) is hit once.
+  function broadcastToHosts(message) {
     var targets = [];
-    if (window.parent && window.parent !== window) {
-      targets.push(window.parent);
+    function add(win, origin) {
+      if (!win || win === window) {
+        return;
+      }
+      for (var i = 0; i < targets.length; i += 1) {
+        if (targets[i].win === win) {
+          return;
+        }
+      }
+      targets.push({ win: win, origin: origin || "*" });
     }
-    if (window.opener) {
-      targets.push(window.opener);
-    }
+    add(window.parent, "*");
+    add(window.opener, "*");
+    state.clients.forEach(function (client) {
+      add(client.source, client.origin);
+    });
     targets.forEach(function (target) {
       try {
-        target.postMessage(message, "*");
+        target.postMessage(message, target.origin);
       } catch (_error) {
-        /* no-op */
+        /* host window may be gone */
       }
     });
+  }
+
+  // Stream the analyser bands driving the on-screen light rig to embedding
+  // hosts, so a game visualization can pulse in sync with the player. `light`
+  // is the mid band — the same value drawLights() animates the rig with.
+  // Throttled to ~20fps; the raw callback fires per animation frame.
+  var lastFrequencyPost = 0;
+  function broadcastFrequency(bands) {
+    var now = (window.performance && performance.now)
+      ? performance.now()
+      : Date.now();
+    if (now - lastFrequencyPost < 50) {
+      return;
+    }
+    lastFrequencyPost = now;
+    broadcastToHosts({
+      type: MESSAGE_PREFIX + "frequency",
+      bass: bands.bass,
+      mid: bands.mid,
+      high: bands.high,
+      energy: bands.energy,
+      light: bands.light,
+      playing: !!bands.playing
+    });
+  }
+
+  // Announce this window as a music player. `role: "musicPlayer"` lets a host
+  // register us as its current music player without inferring it from context.
+  function announceReady() {
+    var message = { type: MESSAGE_PREFIX + "ready", role: "musicPlayer", state: playerState() };
+    broadcastToHosts(message);
   }
 
   function handleMessage(event) {
