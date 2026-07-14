@@ -656,7 +656,7 @@
     });
     targets.forEach(function (target) {
       try {
-        target.postMessage(message, target.origin);
+        target.win.postMessage(message, target.origin);
       } catch (_error) {
         /* host window may be gone */
       }
