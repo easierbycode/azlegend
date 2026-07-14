@@ -76,6 +76,9 @@
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.assetBase = (options && options.assetBase) || "/public/app/images/audio-party";
+    // Optional per-frame callback: receives the analyser bands so an embedding
+    // host can mirror the light show (see app.js broadcastFrequency).
+    this.onFrequency = (options && options.onFrequency) || null;
     this.audio = null;
     this.audioContext = null;
     this.audioSource = null;
@@ -240,6 +243,20 @@
     this.drawSprites(ctx, width, height, now, bass, mid, high, pulse);
     this.drawEqualizer(ctx, width, height, pulse);
     this.drawVignette(ctx, width, height);
+
+    // Publish the bands to any embedding host. `light` is the mid band — the
+    // exact value drawLights() above animates the light rig with — so a
+    // consumer can pulse its own visuals to the same colour the lights show.
+    if (this.onFrequency) {
+      this.onFrequency({
+        bass: bass,
+        mid: mid,
+        high: high,
+        energy: pulse,
+        light: mid,
+        playing: !!(this.audio && !this.audio.paused)
+      });
+    }
   };
 
   AudioPartyVisualizer.prototype.drawBackground = function (ctx, width, height, now, bass, pulse) {
