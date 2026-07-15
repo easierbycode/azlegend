@@ -239,14 +239,17 @@
 
     this.drawBackground(ctx, width, height, now, bass, pulse);
     this.drawStars(ctx, width, height, now, bass, mid, high);
-    this.drawLights(ctx, width, height, now, mid, pulse);
+    var lightFrame = this.drawLights(ctx, width, height, now, mid, pulse);
     this.drawSprites(ctx, width, height, now, bass, mid, high, pulse);
     this.drawEqualizer(ctx, width, height, pulse);
     this.drawVignette(ctx, width, height);
 
     // Publish the bands to any embedding host. `light` is the mid band — the
-    // exact value drawLights() above animates the light rig with — so a
-    // consumer can pulse its own visuals to the same colour the lights show.
+    // exact value drawLights() above animates the light rig with. `lightFrame`
+    // is the rig frame drawLights just drew: a consumer that re-derived the
+    // frame from `light` and its own clock would cycle at the right rate but at
+    // an arbitrary phase (performance.now() epochs differ per window), so we
+    // hand over the authoritative frame instead.
     if (this.onFrequency) {
       this.onFrequency({
         bass: bass,
@@ -254,6 +257,8 @@
         high: high,
         energy: pulse,
         light: mid,
+        lightFrame: lightFrame,
+        lightFrames: this.assets.lights.length,
         playing: !!(this.audio && !this.audio.paused)
       });
     }
@@ -302,10 +307,12 @@
     }
   };
 
+  // Returns the frame index it drew (-1 before the light assets are loaded),
+  // so the caller can broadcast the rig's current frame to embedding hosts.
   AudioPartyVisualizer.prototype.drawLights = function (ctx, width, height, now, mid, pulse) {
     var lights = this.assets.lights;
     if (!lights.length) {
-      return;
+      return -1;
     }
 
     var frame = Math.floor(now / 86 + mid * 18) % lights.length;
@@ -319,6 +326,8 @@
     ctx.filter = "saturate(" + (1.5 + pulse * 2.4) + ") blur(" + (pulse * 0.6) + "px)";
     ctx.drawImage(image, (width - drawWidth) / 2, -drawHeight * 0.05, drawWidth, drawHeight);
     ctx.restore();
+
+    return frame;
   };
 
   AudioPartyVisualizer.prototype.drawSprites = function (ctx, width, height, now, bass, mid, high, pulse) {

@@ -665,7 +665,11 @@
 
   // Stream the analyser bands driving the on-screen light rig to embedding
   // hosts, so a game visualization can pulse in sync with the player. `light`
-  // is the mid band — the same value drawLights() animates the rig with.
+  // is the mid band — the same value drawLights() animates the rig with — and
+  // `lightFrame`/`lightFrames` are the rig frame just drawn and the frame
+  // count, so a consumer can land on the exact colour the lights are showing
+  // (re-deriving the frame from `light` on another window's clock cycles at
+  // the right rate but at an arbitrary phase offset).
   // Throttled to ~20fps; the raw callback fires per animation frame.
   var lastFrequencyPost = 0;
   function broadcastFrequency(bands) {
@@ -683,6 +687,8 @@
       high: bands.high,
       energy: bands.energy,
       light: bands.light,
+      lightFrame: bands.lightFrame,
+      lightFrames: bands.lightFrames,
       playing: !!bands.playing
     });
   }
