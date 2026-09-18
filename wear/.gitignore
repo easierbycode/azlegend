@@ -1,0 +1,9 @@
+build/
+.gradle/
+.kotlin/
+.idea/
+*.iml
+local.properties
+.cxx/
+captures/
+*.apk.idsig

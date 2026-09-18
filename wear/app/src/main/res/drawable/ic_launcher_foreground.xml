@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.1171875"
+        android:scaleY="0.1171875"
+        android:translateX="24"
+        android:translateY="24">
+        <!-- shell -->
+        <path
+            android:fillColor="#F0F0F0"
+            android:pathData="M98,156 H414 A28,28 0 0 1 442,184 V366 A28,28 0 0 1 414,394 H98 A28,28 0 0 1 70,366 V184 A28,28 0 0 1 98,156 Z" />
+        <!-- window -->
+        <path
+            android:fillColor="#10131C"
+            android:pathData="M122,202 H390 A18,18 0 0 1 408,220 V270 A18,18 0 0 1 390,288 H122 A18,18 0 0 1 104,270 V220 A18,18 0 0 1 122,202 Z" />
+        <!-- reels -->
+        <path
+            android:fillColor="#1B1F2D"
+            android:pathData="M118,246 a48,48 0 1 0 96,0 a48,48 0 1 0 -96,0 Z" />
+        <path
+            android:fillColor="#1B1F2D"
+            android:pathData="M298,246 a48,48 0 1 0 96,0 a48,48 0 1 0 -96,0 Z" />
+        <path
+            android:fillColor="#2DFF87"
+            android:pathData="M152,246 a14,14 0 1 0 28,0 a14,14 0 1 0 -28,0 Z" />
+        <path
+            android:fillColor="#FFCD4D"
+            android:pathData="M332,246 a14,14 0 1 0 28,0 a14,14 0 1 0 -28,0 Z" />
+        <!-- label -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M140,318 H372 A8,8 0 0 1 380,326 V354 A8,8 0 0 1 372,362 H140 A8,8 0 0 1 132,354 V326 A8,8 0 0 1 140,318 Z" />
+        <path
+            android:strokeColor="#050508"
+            android:strokeWidth="12"
+            android:strokeLineCap="round"
+            android:pathData="M156,342 H356" />
+        <!-- top stripe -->
+        <path
+            android:strokeColor="#4FD8FF"
+            android:strokeWidth="20"
+            android:strokeLineCap="round"
+            android:pathData="M92,118 H420" />
+    </group>
+</vector>

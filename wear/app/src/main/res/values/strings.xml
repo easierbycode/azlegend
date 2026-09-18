@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AZ Legend</string>
+    <string name="artist_name">AZ Legend</string>
+
+    <string name="channel_downloads">Downloads</string>
+    <string name="channel_playback">Playback</string>
+    <string name="notification_downloading">Downloading %1$s</string>
+    <string name="action_cancel">Cancel</string>
+
+    <string name="library_title">AZ Legend</string>
+    <string name="library_local_files">On this watch</string>
+    <string name="library_empty">No albums yet. Sync the catalog when the watch is online.</string>
+    <string name="now_playing">Now playing</string>
+    <string name="sync_catalog">Sync catalog</string>
+    <string name="syncing">Syncing…</string>
+    <string name="sync_failed">Sync failed: %1$s</string>
+    <string name="storage_used">%1$s downloaded</string>
+    <string name="network_offline">Offline</string>
+    <string name="network_via">Online via %1$s</string>
+
+    <plurals name="album_tracks">
+        <item quantity="one">%1$d track</item>
+        <item quantity="other">%1$d tracks</item>
+    </plurals>
+    <string name="album_downloaded_of">%1$d of %2$d downloaded</string>
+    <string name="album_downloaded_all">Downloaded · %1$s</string>
+    <string name="album_downloading">Downloading %1$d/%2$d · %3$d%%</string>
+    <string name="album_download_failed">Download failed: %1$s</string>
+    <string name="album_queued">Waiting for network…</string>
+    <string name="action_play_album">Play album</string>
+    <string name="action_download_album">Download album</string>
+    <string name="action_cancel_download">Cancel download</string>
+    <string name="action_delete_downloads">Delete downloads</string>
+    <string name="delete_confirm_title">Delete downloads?</string>
+    <string name="delete_confirm_text">%1$s will be removed from the watch. You can download it again later.</string>
+    <string name="delete">Delete</string>
+    <string name="keep">Keep</string>
+    <string name="track_stream">Stream</string>
+    <string name="track_downloaded">Downloaded</string>
+    <string name="track_local">Local file</string>
+
+    <string name="player_empty">Nothing playing. Pick an album to start.</string>
+    <string name="player_connecting">Connecting…</string>
+    <string name="player_suppressed">Connect Bluetooth headphones to play</string>
+    <string name="player_error">Playback error: %1$s</string>
+    <string name="player_track_of">%1$d / %2$d</string>
+    <string name="cd_play">Play</string>
+    <string name="cd_pause">Pause</string>
+    <string name="cd_next">Next track</string>
+    <string name="cd_previous">Previous track</string>
+    <string name="cd_volume_up">Volume up</string>
+    <string name="cd_volume_down">Volume down</string>
+    <string name="output_speaker">Speaker</string>
+    <string name="output_bluetooth">Bluetooth</string>
+    <string name="output_headphones">Headphones</string>
+    <string name="output_none">No output</string>
+    <string name="output_bluetooth_settings">Bluetooth settings</string>
+</resources>
