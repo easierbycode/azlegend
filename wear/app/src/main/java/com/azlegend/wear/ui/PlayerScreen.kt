@@ -154,10 +154,10 @@ private fun NowPlaying(
 ) {
     val context = LocalContext.current
 
-    // Extra side padding keeps long titles clear of the round edge (they wrap instead of clipping).
+    // The circle is narrow near the top, so titles wrap at 72% width instead of clipping at the edge.
     Text(
         text = state.title,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+        modifier = Modifier.fillMaxWidth(TITLE_WIDTH_FRACTION),
         style = MaterialTheme.typography.titleMedium,
         textAlign = TextAlign.Center,
         maxLines = 2,
@@ -165,7 +165,7 @@ private fun NowPlaying(
     )
     Text(
         text = state.album,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+        modifier = Modifier.fillMaxWidth(TITLE_WIDTH_FRACTION),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
@@ -263,6 +263,7 @@ private fun NowPlaying(
 
 private const val VOLUME_OVERLAY_MS = 1_500L
 private const val ROTARY_STEP_PX = 48f
+private const val TITLE_WIDTH_FRACTION = 0.72f
 
 /** Opens the system media output switcher (Wear OS 5+), falling back to Bluetooth settings. */
 private fun openOutputSwitcher(context: android.content.Context) {
