@@ -1,6 +1,9 @@
 import { define } from "../utils.ts";
 
-export default define.page(function App({ Component }) {
+export default define.page(function App({ Component, url }) {
+  // The player scripts assume the tape deck's markup is on the page, so they
+  // are loaded only where it is.
+  const isPlayer = url.pathname === "/";
   return (
     <html lang="en">
       <head>
@@ -23,12 +26,19 @@ export default define.page(function App({ Component }) {
           href="/public/libraries/styles/cassette-tape-ui-blur.css"
         />
         <link rel="stylesheet" href="/public/app/styles/styles.css" />
+        {url.pathname === "/add" && (
+          <link rel="stylesheet" href="/public/app/styles/add-song.css" />
+        )}
       </head>
       <body>
         <Component />
-        <script defer src="/public/app/scripts/audio-visualizer.js">
-        </script>
-        <script defer src="/public/app/scripts/app.js"></script>
+        {isPlayer && (
+          <>
+            <script defer src="/public/app/scripts/audio-visualizer.js">
+            </script>
+            <script defer src="/public/app/scripts/app.js"></script>
+          </>
+        )}
       </body>
     </html>
   );

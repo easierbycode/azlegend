@@ -15,6 +15,10 @@
     <string name="sync_catalog">Sync catalog</string>
     <string name="syncing">Syncing…</string>
     <string name="sync_failed">Sync failed: %1$s</string>
+    <plurals name="sync_partial">
+        <item quantity="one">%1$d album could not be refreshed</item>
+        <item quantity="other">%1$d albums could not be refreshed</item>
+    </plurals>
     <string name="storage_used">%1$s downloaded</string>
     <string name="network_offline">Offline</string>
     <string name="network_via">Online via %1$s</string>
