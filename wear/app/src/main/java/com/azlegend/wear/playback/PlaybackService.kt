@@ -43,7 +43,9 @@ class PlaybackService : MediaSessionService() {
                 /* handleAudioFocus = */ true,
             )
             .setHandleAudioBecomingNoisy(true)
-            .setWakeMode(C.WAKE_MODE_LOCAL)
+            // NETWORK, not LOCAL: remotely-added tracks stream from the internet, and a local-only
+            // wake lock lets the radio drop while the screen is off, stalling playback mid-track.
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             // Official Wear guidance: don't start music on the watch speaker by accident. When no
             // headphones are connected the resolver opens the system output switcher, where the
             // user can still pick the speaker explicitly, and playback resumes once an output is chosen.

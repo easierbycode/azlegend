@@ -23,7 +23,12 @@ class CatalogRepository(
     private val albumListSerializer = ListSerializer(AlbumRef.serializer())
     private val trackListSerializer = ListSerializer(TrackRef.serializer())
 
-    data class Catalog(val albums: List<AlbumRef>, val tracks: Map<String, List<TrackRef>>)
+    data class Catalog(
+        val albums: List<AlbumRef>,
+        val tracks: Map<String, List<TrackRef>>,
+        /** Albums whose own list could not be fetched and were kept from the cache instead. */
+        val staleAlbumIds: List<String> = emptyList(),
+    )
 
     suspend fun loadCached(): Catalog? = withContext(Dispatchers.IO) {
         val albumsFile = File(store.catalogDir, ALBUMS_FILE)
@@ -53,31 +58,58 @@ class CatalogRepository(
         }.getOrNull()
     }
 
-    /** Fetches albums.json and every track list from the site and caches them; throws on failure. */
+    /**
+     * Fetches albums.json and every track list from the site and caches them.
+     *
+     * albums.json itself is all-or-nothing, but one album whose own list fails keeps the list it
+     * had cached: the catalog now contains an album served from a live endpoint, and a single 500
+     * there must not cost the user the rest of their library. A sync where nothing at all could be
+     * fetched is a dead network, not a partial success, so that still throws.
+     */
     suspend fun refresh(network: Network? = null): Catalog = withContext(Dispatchers.IO) {
         val albumsText = fetch(resolveUrl(baseUrl, ALBUMS_PATH), network)
         val albums = json.decodeFromString(albumListSerializer, albumsText)
         val tracks = LinkedHashMap<String, List<TrackRef>>()
         val trackTexts = LinkedHashMap<String, String>()
+        val stale = mutableListOf<String>()
+        var fetched = 0
         for (album in albums) {
-            val text = fetch(resolveUrl(baseUrl, album.tracks), network)
-            tracks[album.id] = json.decodeFromString(trackListSerializer, text)
-            trackTexts[album.id] = text
+            val fresh = runCatching {
+                val text = fetch(resolveUrl(baseUrl, album.tracks), network)
+                json.decodeFromString(trackListSerializer, text) to text
+            }.getOrNull()
+            if (fresh != null) {
+                fetched++
+                tracks[album.id] = fresh.first
+                trackTexts[album.id] = fresh.second
+                continue
+            }
+            stale += album.id
+            val cachedText = runCatching { File(store.catalogDir, trackFileName(album.id)).readText() }.getOrNull()
+            val cached = cachedText?.let { runCatching { json.decodeFromString(trackListSerializer, it) }.getOrNull() }
+            if (cached != null && cachedText != null) {
+                tracks[album.id] = cached
+                trackTexts[album.id] = cachedText
+            } else {
+                tracks[album.id] = emptyList()
+            }
         }
-        // Only persist once everything parsed, so a half-fetched catalog never replaces a good cache.
+        if (fetched == 0 && albums.isNotEmpty()) throw IOException("Could not fetch any track list")
+        // Only persist once everything resolved, so a half-fetched catalog never replaces a good cache.
         File(store.catalogDir, ALBUMS_FILE).writeText(albumsText)
         trackTexts.forEach { (id, text) -> File(store.catalogDir, trackFileName(id)).writeText(text) }
-        Catalog(albums, tracks)
+        Catalog(albums, tracks, stale)
     }
 
     /** Converts catalog JSON into domain albums, marking which tracks already exist on the watch. */
     fun toAlbums(catalog: Catalog): List<Album> = catalog.albums.map { ref ->
         val trackRefs = catalog.tracks[ref.id].orEmpty()
+        val fileNames = trackFileNames(trackRefs)
         Album(
             id = ref.id,
             title = ref.title,
-            tracks = trackRefs.map { t ->
-                val fileName = MusicStore.safeName(t.file.ifBlank { t.url.substringAfterLast('/') })
+            tracks = trackRefs.mapIndexed { index, t ->
+                val fileName = fileNames[index]
                 Track(
                     id = "${ref.id}/$fileName",
                     title = t.title?.takeIf { it.isNotBlank() } ?: titleFromFileName(fileName),

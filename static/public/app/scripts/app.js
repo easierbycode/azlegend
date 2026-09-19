@@ -898,6 +898,12 @@
     });
     elements.audio.addEventListener("durationchange", updateProgress);
 
+    // A cross-origin track from a host without CORS headers fails as a media
+    // error with no other signal; without this the UI just looks stuck.
+    elements.audio.addEventListener("error", function () {
+      setStatus("Could not load this track");
+    });
+
     window.addEventListener("message", handleMessage);
     window.addEventListener("resize", fitTape);
     window.addEventListener("online", function () {

@@ -15,13 +15,14 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     val store = MusicStore(appContext)
     val catalogRepository = CatalogRepository(appContext, store, AppConfig.BASE_URL)
-    val library = LibraryRepository(store, catalogRepository)
+
+    /** Used by the UI to describe the current connection; downloads acquire their own network. */
+    val connectivity = HighBandwidthNetwork(appContext)
+
+    val library = LibraryRepository(store, catalogRepository, isOnline = connectivity::hasInternet)
     val playbackState = PlaybackStateStore(appContext)
     val player = PlayerConnection(appContext)
     val downloads = Downloads(appContext, library, store) { albumId ->
         player.refreshQueue(albumId) { id -> library.track(id)?.toMediaItem() }
     }
-
-    /** Used by the UI to describe the current connection; downloads acquire their own network. */
-    val connectivity = HighBandwidthNetwork(appContext)
 }

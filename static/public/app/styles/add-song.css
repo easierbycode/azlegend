@@ -1,0 +1,30 @@
+/* Styles for /add (routes/add.tsx). */
+.add-shell { max-width: 34rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+.add-shell h1 { margin: 0 0 .25rem; font-size: 1.6rem; }
+.add-shell p.lede { margin: 0 0 1.5rem; opacity: .7; font-size: .95rem; }
+.add-form { display: flex; flex-direction: column; gap: .9rem; }
+.add-form label { display: flex; flex-direction: column; gap: .35rem; font-size: .8rem;
+  letter-spacing: .08em; text-transform: uppercase; opacity: .65; }
+.add-form input { padding: .7rem .8rem; font-size: 1rem; border-radius: .5rem;
+  border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.06);
+  color: inherit; font-family: inherit; }
+.add-form input:focus { outline: 2px solid #e8b53d; outline-offset: 1px; }
+.add-form button { padding: .8rem 1rem; font-size: 1rem; font-weight: 600; cursor: pointer;
+  border: 0; border-radius: .5rem; background: #e8b53d; color: #1a1408; }
+.add-form button[disabled] { opacity: .55; cursor: progress; }
+.add-note { font-size: .8rem; opacity: .6; margin: .2rem 0 0; }
+.add-status { margin: 1rem 0 0; padding: .7rem .8rem; border-radius: .5rem; font-size: .9rem;
+  display: none; }
+.add-status.ok { display: block; background: rgba(90,190,120,.14); color: #8fdca6; }
+.add-status.err { display: block; background: rgba(220,90,90,.14); color: #f0a0a0; }
+.added-list { list-style: none; margin: 1.5rem 0 0; padding: 0;
+  border-top: 1px solid rgba(255,255,255,.12); }
+.added-list li { display: flex; align-items: center; gap: .75rem; padding: .7rem 0;
+  border-bottom: 1px solid rgba(255,255,255,.08); }
+.added-list .t { flex: 1; min-width: 0; }
+.added-list .t strong { display: block; font-weight: 600; font-size: .95rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.added-list .t span { display: block; font-size: .75rem; opacity: .5;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.added-list button { background: none; border: 1px solid rgba(255,255,255,.2);
+  color: inherit; border-radius: .4rem; padding: .35rem .6rem; font-size: .8rem; cursor: pointer; }

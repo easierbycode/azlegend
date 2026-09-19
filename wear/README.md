@@ -15,6 +15,11 @@ Google Pixel Watch 5 (Wear OS 7) and installed by sideloading; no Play Store, no
   current audio output. Playback runs in a Media3 `MediaSessionService`, so it keeps going when the
   screen is off and shows up in the watch's media controls and the watch-face chip.
 - Tracks that are not downloaded can still be streamed when the watch is online.
+- **Added** holds songs added remotely from the site's `/add` page. They arrive
+  through the same catalog sync as everything else, so no new app build is needed
+  to add a song. The library refreshes itself on resume (at most every 5 minutes,
+  silently), so a song added on a phone shows up on its own; "Sync catalog"
+  fetches it immediately.
 
 ## Build
 

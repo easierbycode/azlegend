@@ -60,9 +60,11 @@ fun LibraryScreen(
     val player by container.player.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
-    // Files pushed with adb while the app was in the background show up on the next resume.
+    // Files pushed with adb while the app was in the background show up on the next resume, and so
+    // do songs added on the site since the last sync (throttled and silent; see autoRefreshCatalog).
     LifecycleResumeEffect(Unit) {
         scope.launch { container.library.rebuild() }
+        container.library.autoRefreshCatalog()
         onPauseOrDispose { }
     }
 
@@ -199,8 +201,13 @@ private fun TransformingLazyColumnItemScope.SyncButton(
                 Icon(painterResource(R.drawable.ic_sync), null, Modifier.size(ButtonDefaults.IconSize))
             }
         },
-        secondaryLabel = (status as? SyncStatus.Failed)?.let { failed ->
-            { Text(stringResource(R.string.sync_failed, failed.message), maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        secondaryLabel = when {
+            status is SyncStatus.Failed ->
+                { { Text(stringResource(R.string.sync_failed, status.message), maxLines = 2, overflow = TextOverflow.Ellipsis) } }
+            // A dead endpoint would otherwise read as a clean "Synced" while new songs never arrive.
+            status is SyncStatus.Synced && status.staleAlbums.isNotEmpty() ->
+                { { Text(pluralStringResource(R.plurals.sync_partial, status.staleAlbums.size, status.staleAlbums.size), maxLines = 2, overflow = TextOverflow.Ellipsis) } }
+            else -> null
         },
         label = {
             Text(stringResource(if (syncing) R.string.syncing else R.string.sync_catalog), maxLines = 1, overflow = TextOverflow.Ellipsis)
